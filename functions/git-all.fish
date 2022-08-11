@@ -47,50 +47,28 @@ function git-all --wraps=git --description 'execute same git command on all repo
   
   # Go over all the repos in this folder and issue the command ith re repository context
   for repo in (ein tools find)
-    
-    if test -n "$_flag_verbose"
-      set_color -o green
-      echo -n '==> ' 
-      set_color normal -i green
-      echo -n '(verbose) '
-      set_color normal -o green
-      echo ' <==' 
-      set_color white
-      echo git -C $repo $argv
-      set_color normal
-      
-      git -C $repo $argv 
-    else
-      set_color -o green
-      echo -n '==> ' 
-      set_color white
-      echo git -C $repo $argv
-      set_color normal
-      tput sc
-    
-      set -l _clear_output false
-      set -l _status_up_to_date false
-      git -C $repo $argv 2>&1 | while read -l line
-        echo $line
-        switch $line
-          case 'Already up to date.'
-            set _clear_output true
-          case 'Your branch is up to date with *'
-            set _status_up_to_date true
-          case 'nothing to commit, working tree clean'
-            set _clear_output $_status_up_to_date
-        end
-      end
-
-      if $_clear_output
-        sleep 0.1
-        tput rc
-        tput ed
-      end
-    end
-    
+    __git_all_apply $repo $argv
   end
   
+end
+
+function __git_all_apply
+  set -f colorize true
+  if test -t 1
+    set -l ncolors (tput colors)
+    if test -z "$ncolors"; or test $ncolors -lt 8
+      set colorize false
+    end
+  end
+  
+  if $colorize; set_color -o green; end
+  echo -n '==> '
+  if $colorize; set_color white; end
+  echo -n git -C $argv
+  if $colorize; set_color normal; end
+  echo
+  
+  git -C $argv
 end
 
 function __git_all_status
