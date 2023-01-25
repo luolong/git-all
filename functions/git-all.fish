@@ -86,6 +86,7 @@ function __git_all_status
   set -fa __status_behind 'B'
   set -fa __status_modified 'M'
   set -fa __status_uncommitted 'S'
+  set -fa __status_conflict 'C'
   set -fa __status_untracked 'U'
   
   for __repo in (ein tools find)
@@ -119,7 +120,7 @@ function __git_all_status
           switch $__change[1]
            case 'u'
               echo "unmerged changes: $line"
-              test $__change[2] == 'UU'; set __repo_conflict (math $__repo_conflict + 1)
+              test "$__change[2]" == 'UU'; and set __repo_conflict (math $__repo_conflict + 1)
            case '1'
               set -l __xy (string split '' "$__change[2]")
               test $__xy[1] != .; and set __repo_uncommitted (math $__repo_uncommitted + 1)
@@ -162,6 +163,7 @@ function __git_all_status
     set -fa __status_behind "$__repo_behind"
     set -fa __status_modified $__repo_modified
     set -fa __status_uncommitted $__repo_uncommitted
+    set -fa __status_conflict $__repo_conflict
     set -fa __status_untracked $__repo_untracked
   end
 
@@ -188,6 +190,8 @@ function __git_all_status
   set -l __total_uncommitted (math (string join ' + ' $__status_uncommitted[2..-1]))
   set -l __width_uncommitted (math max (string join \n $__status_uncommitted | string length | string join ','))
   
+  set -l __total_conflict (math (string join ' + ' $__status_conflict[2..-1]))
+
   set -l __total_untracked (math (string join ' + ' $__status_untracked[2..-1]))
   set -l __width_untracked (math max (string join \n $__status_untracked | string length | string join ','))
   
@@ -283,6 +287,50 @@ function __git_all_status
     set_color normal
   end
   
+  set -l __total_changes (math $__total_ab + $__total_modified + $__total_uncommitted + $__total_conflict + $__total_untracked)
+  if test $__total_changes -gt 0
+
+    echo
+    set_color -o white
+    echo Legend:
+    set_color normal
+    set -l __indent '  '
+
+    if test $__total_ab -gt 0
+      test $__total_ahead -gt 0; and set -la __legend_label (__git_all_status_status "ahead")
+      test $__total_behind -gt 0; and set -la __legend_label (__git_all_status_status "behind")
+      test $__total_ahead -gt 0 -a $__total_behind -gt 0; and set -la __legend_label (__git_all_status_status "out of sync")
+
+      echo $__indent(string join '/' $__legend_label):
+      echo -n "$__indent$__indent"(set_color -o white)"$__status_ab[1]"
+      set_color -d -i white
+      echo -n \t- Number of commits ahead/behind the remote.
+      set_color normal
+      echo
+    end
+
+    if test (math $__total_modified + $__total_uncommitted + $__total_conflict) -gt 0
+      test $__total_modified -gt 0; and set -la __legend_label (__git_all_status_status "modified")
+      test $__total_uncommitted -gt 0; and set -la __legend_label (__git_all_status_status "uncommitted")
+      test $__total_conflict -gt 0; and set -la __legend_label (__git_all_status_status "conflict")
+
+      echo $__indent(string join '/' $__legend_label)
+      test $__total_modified -gt 0
+      and echo -e "$__indent$__indent"(set_color -o white)"$__status_modified[1]"(set_color -d -i white)"\t- Number of modified files in the working tree not staged for commit"(set_color normal)
+
+      test $__total_uncommitted -gt 0
+      and echo -e "$__indent$__indent"(set_color -o white)"$__status_uncommitted[1]"(set_color -d -i white)"\t- Number of uncommited files staged for commit"(set_color normal)
+    end
+
+    if test $__total_untracked -gt 0
+      echo $__indent(__git_all_status_status 'dirty'):
+      echo -e "$__indent$__indent"(set_color -o white)"$__status_untracked[1]"(set_color -d -i white)"\t- Number of files in the working tree not tracked by Git"(set_color normal)
+    end
+
+    set -l __total_untracked (math (string join ' + ' $__status_untracked[2..-1]))
+    set -l __width_untracked (math max (string join \n $__status_untracked | string length | string join ','))
+    set_color normal
+  end
 end
 
 function __git_all_status_status -a __status
