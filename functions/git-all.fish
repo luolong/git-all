@@ -20,7 +20,11 @@ function git-all --wraps=git --description 'execute same git command on all repo
   test -n "$_flag_version"; and begin git --version; return; end
   
   # These don't make much sense in git-all context, so we error out on these
-  test -n "$_flag_C"; and begin echo "ERROR: '-C' is not supported for git-all" >&2; return 1; end
+  test -n "$_flag_C"; and begin 
+    echo "ERROR: '-C' is not supported for git-all" >&2;
+    echo "      Try 'git $argv' instead"
+    return 1;
+  end
   test -n "$_flag_git_dir"; and begin echo "ERROR: '--git-dir' is not supported for git-all" >&2; return 1; end
   test -n "$_flag_work_tree"; and begin echo "ERROR: '--work-tree' is not supported for git-all" >&2; return 1; end
   test -n "$_flag_namespace"; and begin echo "ERROR: '--namespace' is not supported for git-all" >&2; return 1; end
@@ -92,6 +96,7 @@ function __git_all_status
     set -l __repo_ahead 0
     set -l __repo_behind 0
     set -l __repo_modified 0
+    set -l __repo_conflict 0
     set -l __repo_uncommitted 0
     set -l __repo_untracked 0
     
@@ -114,6 +119,7 @@ function __git_all_status
           switch $__change[1]
            case 'u'
               echo "unmerged changes: $line"
+              test $__change[2] == 'UU'; set __repo_conflict (math $__repo_conflict + 1)
            case '1'
               set -l __xy (string split '' "$__change[2]")
               test $__xy[1] != .; and set __repo_uncommitted (math $__repo_uncommitted + 1)
@@ -125,7 +131,9 @@ function __git_all_status
     end
   
     set -l __repo_status "clean"
-    if test $__repo_modified -gt 0
+    if test $__repo_conflict -gt 0
+      set __repo_status 'conflict'
+    else if test $__repo_modified -gt 0
       set __repo_status 'modified'
     else if test $__repo_uncommitted -gt 0
       set __repo_status 'uncommitted'
@@ -282,6 +290,8 @@ function __git_all_status_status -a __status
   switch $__status
     case 'clean'
       set __color green
+    case 'conflict'
+      set __color yellow
     case 'modified'
       set __color red
     case 'uncommitted'
@@ -289,7 +299,7 @@ function __git_all_status_status -a __status
     case 'dirty'
       set __color '-i' '-u' brblack 
     case 'ahead'
-      set __color brgreen
+      set __color '-u' brgreen
     case 'behind'
       set __color '-i' bryellow
     case 'out of sync'
