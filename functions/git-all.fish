@@ -21,8 +21,10 @@ function git-all --wraps=git --description 'execute same git command on all repo
   
   # These don't make much sense in git-all context, so we error out on these
   test -n "$_flag_C"; and begin 
-    echo "ERROR: '-C' is not supported for git-all" >&2;
-    echo "      Try 'git $argv' instead"
+    echo (set_color -o red)"ERROR:"(set_color normal red)" '-C' is not supported for git-all!"(set_color normal) >&2;
+    echo "Did you mean:" >&2
+    echo
+    echo "  git -C $_flag_C "(string escape -- $argv | string join ' ') >&2
     return 1;
   end
   test -n "$_flag_git_dir"; and begin echo "ERROR: '--git-dir' is not supported for git-all" >&2; return 1; end
